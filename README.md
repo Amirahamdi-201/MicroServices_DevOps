@@ -249,7 +249,7 @@ curl http://localhost:8080/api/v1/paiements
 |-------------|-------|
 | **Spring Boot 3.2.5** | Framework principal |
 | **Spring Cloud 2023.0.2** | Microservices (Gateway, Config, Eureka, Feign) |
-| **Java 21** | Langage |
+| **Java 17** | Langage |
 | **H2 Database** | Base de données en mémoire (dev) |
 | **OpenFeign** | Communication inter-services |
 | **JUnit 5 + Mockito** | Tests unitaires |
