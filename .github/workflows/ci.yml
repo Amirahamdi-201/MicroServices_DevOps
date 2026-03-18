@@ -1,0 +1,67 @@
+name: CI Microservices Corrected
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout du code
+      uses: actions/checkout@v4
+
+    - name: Debug - Lister les fichiers
+      run: |
+        echo "Contenu de la racine :"
+        ls -R
+
+    - name: Configuration de Java 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+        cache: 'maven'
+
+    # Construction de TOUS les services (Product, Order, Inventory, etc.)
+    # On utilise -DskipTests pour gagner du temps et de l'espace disque
+    - name: Build Services
+      run: |
+        SERVICES=("product-service" "order-service" "inventory-service" "gateway-service" "config-service" "discovery-service")
+        for SERVICE in "${SERVICES[@]}"; do
+          TARGET_DIR=$(find . -name "$SERVICE" -type d -not -path "*/.*" | head -n 1)
+          if [ -n "$TARGET_DIR" ]; then
+            echo "Building $SERVICE in $TARGET_DIR..."
+            cd "$TARGET_DIR"
+            mvn clean install -DskipTests
+            cd - > /dev/null
+          else
+            echo "Attention : Dossier $SERVICE non trouvé, passage au suivant."
+          fi
+        done
+
+    - name: Vérification des Secrets
+      run: |
+        if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then echo "ERREUR : DOCKERHUB_USERNAME est vide"; exit 1; fi
+        if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then echo "ERREUR : DOCKERHUB_TOKEN est vide"; exit 1; fi
+
+    - name: Connexion à Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build et Push Docker
+      run: |
+        SERVICES=("product-service" "order-service" "inventory-service" "gateway-service" "config-service" "discovery-service")
+        for SERVICE in "${SERVICES[@]}"; do
+          DIR=$(find . -name "$SERVICE" -type d -not -path "*/.*" | head -n 1)
+          if [ -n "$DIR" ]; then
+            echo "Construction de l'image pour $SERVICE..."
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/$SERVICE:latest "$DIR"
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/$SERVICE:latest
+          fi
+        done
